@@ -1,0 +1,6 @@
+.DS_Store
+.ipynb_checkpoints/
+curvas_por_produtos_geral/
+curvas_por_produtos_por_dia/
+curvas_por_produtos_por_mes/
+produtox_caseirox.csv
