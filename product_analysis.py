@@ -149,6 +149,18 @@ def get_dataset(path):
                                                           row['ANO']), axis=1)
     return data
     
+
+def get_color_by_year(year):
+    
+    color = None
+    year = str(year)[-2::]
+    if(year == "16"):
+        color = "r"
+    elif(year == "17"):
+        color = "b"
+    else:
+        color = "g"
+    return color
     
     
 DATASET_PATH = "produtox_caseirox.csv"    
@@ -162,7 +174,6 @@ if not os.path.exists("curvas_por_produtos_geral"):
     print("- Criando diretorio")
     os.makedirs("curvas_por_produtos_geral")
     print("- Diretorio criado")
-    
 for product_id in id_list:
     print("- Buscando informacoes do produto: %s" % (product_id))
     product_data = data.loc[data['ID'] == product_id]
@@ -172,8 +183,9 @@ for product_id in id_list:
         plt.figure(figsize=(30,20))
         plt.suptitle(product_name, fontsize=16)
         x = product_data['DATA']
+        colors = list(map(get_color_by_year, x))
         y = product_data['VALOR']
-        plt.bar(x,y)
+        plt.bar(x,y, color=colors)
         plt.xticks(fontsize=8, rotation=90)
         plt.title(product_name)
         plot_path = "curvas_por_produtos_geral/"+str(product_id)+".pdf"
@@ -199,18 +211,26 @@ for product_id in id_list:
         product_name = product_data['NOME'].values[0]
         plt.figure(figsize=(30,20))
         plt.suptitle(product_name, fontsize=16)
-        x = product_data['DATA']
-        x = x.apply(lambda row: change_string(row))
-        y = product_data['VALOR']
-        plt.bar(x,y)
+        product_data_grouped = product_data.groupby(['ANO','MES'])['VALOR'].sum()
+        x = []
+        colors = []
+        for i in product_data_grouped.index.values:
+            date = manipulate_date(1,i[1],i[0])
+            x.append(date[3::])
+            colors.append(get_color_by_year(i[0]))
+        y = product_data_grouped
+        plt.bar(x,y, color=colors)
         plt.xticks(fontsize=8, rotation=90)
         plt.title(product_name)
         plot_path = "curvas_por_produtos_por_mes/"+str(product_id)+".pdf"
         plt.savefig(plot_path)
         plt.close()
         print("- Grafico criado e armazenado em: %s" % (os.path.abspath(plot_path)))
+    else:
+        print("- Produto %s não encontrado" % (product_id))
+    break
 
-# gerando graficos de vendas de produtos por dia
+# gerando graficos de vendas de produtos pra cada dia
 print("+ Gerando graficos de vendas de produtos por dia")
 day_list = list(range(1, 7))
 if not os.path.exists("curvas_por_produtos_por_dia"):
@@ -234,13 +254,107 @@ for product_id in id_list:
                 plot_position = "32"+str(day)
                 plt.subplot(plot_position)
                 x = product_data_by_day['DATA']
+                colors = []
+                for i in x:
+                    colors.append(get_color_by_year(i))
                 y = product_data_by_day['VALOR']
-                plt.bar(x,y)
+                plt.bar(x,y,color=colors)
                 plt.xticks(fontsize=8, rotation=90)
                 plt.title(get_day_name(day))
+            else:
+                print("- Não foi encontrada venda do produto %s para o dia %d" % (product_id, day))
         plot_path = "curvas_por_produtos_por_dia/"+str(product_id)+".pdf"
         plt.savefig(plot_path)
         plt.close()
         print("- Grafico criado e armazenado em: %s" % (os.path.abspath(plot_path)))
+    else:
+        print("- Produto %s não encontrado" % (product_id))
+        
+        
+# gerando curva semanal de vendas por produtos
+print("+ Gerando curvas de vendas semanais por produtos")
+if not os.path.exists("curvas_semanais_por_produto"):
+    print("- Criando diretorio")
+    os.makedirs("curvas_semanais_por_produto")
+    print("- Diretorio criado")
+    
+for product_id in id_list: 
+    print("- Buscando informacoes do produto: %s" % (product_id))
+    product_data = data.loc[data['ID'] == product_id]
+    if(not product_data.empty):
+        print("- Produto %s encontrado" % (product_id))
+        product_name = product_data['NOME'].values[0]
+        plt.figure(figsize=(30,20))
+        plt.suptitle(product_name, fontsize=16)
+        product_data_grouped = product_data.groupby(['DIA'])['VALOR'].sum()
+        x = list(map(get_day_name, product_data_grouped.index.values))
+        y = product_data_grouped
+        plt.bar(x,y)
+        plt.xticks(fontsize=18, rotation=90)
+        plt.title(product_name)
+        plot_path = "curvas_semanais_por_produto/"+str(product_id)+".pdf"
+        plt.savefig(plot_path)
+        plt.close()
+        print("- Grafico criado e armazenado em: %s" % (os.path.abspath(plot_path)))
+    else:
+        print("- Produto %s não encontrado" % (product_id))
+        
+
+# gerando grafico de vendas totais em relaçao aos dias da semana por mês
+plt.figure(figsize=(30,20))
+plt.suptitle("TOTAL DE VENDAS POR DIA POR MES", fontsize=16)
+for day in day_list:
+    print("- Buscando informacoes de vendas do dia: %d" % (day))
+    day_data = data.loc[data['DIA'] == day]
+    if(not day_data.empty):
+        day_data_grouped = day_data.groupby(['ANO', 'MES', 'DIA'])['VALOR'].sum()
+        x = []
+        colors = []
+        for i in day_data_grouped.index.values:
+            day_name = manipulate_date(i[2],i[1],i[0]) 
+            x.append(day_name[3::])
+            colors.append(get_color_by_year(i[0]))
+        plot_position = "32"+str(day)
+        plt.subplot(plot_position)
+        plt.suptitle("TOTAL DE VENDAS POR DIA DA SEMANA", fontsize=20)
+        plt.title(get_day_name(day))
+        plt.bar(x, day_data_grouped, color=colors)
+        plt.xticks(fontsize=15, rotation=90)
+        print("- Grafico criado e armazenado em: %s" % (os.path.abspath(plot_path)))
+    else:
+        print("- Não houve vendas para o dia %d" % (day))
+plot_path = "total_vendas_por_dia_por_mes.pdf"
+plt.savefig(plot_path)
+plt.close()
+
+
+# gerando grafico de vendas totais                 
+plt.figure(figsize=(30,20))
+plt.suptitle("TOTAL DE VENDAS POR MES", fontsize=16)
+data_grouped = data.groupby(['ANO', 'MES'])['VALOR'].sum()
+x = []
+colors = []
+for i in data_grouped.index.values:
+    date = manipulate_date(1,i[1],i[0])
+    colors.append(get_color_by_year(i[0]))
+    x.append(date[3::])
+plt.bar(x, data_grouped, color=colors)
+plt.xticks(fontsize=20, rotation=90)
+plot_path = "total_vendas_por_mes.pdf"
+plt.savefig(plot_path)
+plt.close()
+print("- Grafico criado e armazenado em: %s" % (os.path.abspath(plot_path)))
+
+
+        
+
+
+
+
+
+
+        
+
+
 
         
